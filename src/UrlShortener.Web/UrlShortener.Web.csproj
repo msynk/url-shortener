@@ -1,0 +1,100 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <TargetFramework>net7.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <!--If you don't need to use the time zone and your app is in WASM format, you can reduce the output size of the app by disabling the time zone.-->
+        <BlazorEnableTimeZoneSupport>true</BlazorEnableTimeZoneSupport>
+        <BlazorWebAssemblyPreserveCollationData>false</BlazorWebAssemblyPreserveCollationData>
+                <ServiceWorkerAssetsManifest Condition="$(WebAppDeploymentType.Contains('Pwa'))">service-worker-assets.js</ServiceWorkerAssetsManifest>
+        <BlazorCacheBootResources Condition="$(WebAppDeploymentType.Contains('Pwa'))">false</BlazorCacheBootResources>
+        <InvariantGlobalization Condition="'$(MultilingualEnabled)' == 'false'">true</InvariantGlobalization>
+        <BlazorWebAssemblyLoadAllGlobalizationData Condition="'$(MultilingualEnabled)' == 'true'">true</BlazorWebAssemblyLoadAllGlobalizationData>
+        <!-- To change MultilingualEnabled's value, checkout Directory.Build.props -->
+        <EmccInitialHeapSize Condition="'$(EmccInitialHeapSize)' == ''">16777216</EmccInitialHeapSize>
+        
+        <ResolveStaticWebAssetsInputsDependsOn>
+            BeforeBuildTasks;
+            $(ResolveStaticWebAssetsInputsDependsOn)
+        </ResolveStaticWebAssetsInputsDependsOn>
+    </PropertyGroup>
+
+    <ItemGroup>
+                <!-- In the Blazor WebAssembly mode, the API project will host the web app itself -->
+        <Content Condition="'$(BlazorMode)' != 'BlazorServer'" Remove="Pages\_Host.cshtml" />
+        <Content Condition="'$(BlazorMode)' != 'BlazorServer'" Remove="Pages\_Layout.cshtml" />
+        <Compile Condition="'$(BlazorMode)' != 'BlazorServer'" Remove="Services\Implementations\ServerSideAuthTokenProvider.cs" />
+        <Compile Condition="'$(BlazorMode)' != 'BlazorServer'" Remove="Extensions\HttpRequestExtensions.cs" />
+            </ItemGroup>
+
+    <ItemGroup>
+        <Content Remove="compilerconfig.json" />
+        <None Include="compilerconfig.json" />
+
+        <Content Remove="appsettings.json" />
+        <EmbeddedResource Include="appsettings.json" />
+
+        <PackageReference Include="Bit.BlazorUI" Version="5.5.0-pre-08" />
+        <PackageReference Include="Bit.BlazorUI.Icons" Version="5.5.0-pre-08" />
+        <PackageReference Include="Bit.BlazorUI.Assets" Version="5.5.0-pre-08" />
+        <PackageReference Include="Bit.Bup" Version="5.5.0-pre-08" />
+        <PackageReference Include="Bit.Bswup" Version="5.5.0-pre-08" />
+        <PackageReference Include="Bit.CodeAnalyzers" Version="5.5.0-pre-08">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Bit.SourceGenerators" Version="5.5.0-pre-08">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="7.0.10" />
+                <PackageReference Condition="'$(BlazorMode)' == 'BlazorWebAssembly'" Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.10" />
+        <PackageReference Condition="'$(BlazorMode)' == 'BlazorWebAssembly'" Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.10" PrivateAssets="all" />
+                <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="7.0.10" />
+
+        <Using Include="System.Net.Http.Json" />
+        <Using Include="System.Collections.Concurrent" />
+        <Using Include="Microsoft.JSInterop" />
+        <Using Include="Microsoft.AspNetCore.Components" />
+        <Using Include="Microsoft.AspNetCore.Authorization" />
+        <Using Include="Microsoft.AspNetCore.Components.Authorization" />
+        <Using Include="Bit.BlazorUI" />
+        <Using Include="UrlShortener.Web.Shared" />
+        <Using Include="UrlShortener.Web.Services.Contracts" />
+        <Using Include="UrlShortener.Web.Services.Implementations" />
+        <Using Include="UrlShortener.Shared" />
+
+        <Watch Remove="*.scss" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\UrlShortener.Shared\UrlShortener.Shared.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ServiceWorker Condition="$(WebAppDeploymentType.Contains('Pwa'))" Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Update="**\*.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>$([System.String]::Copy('%(Filename)').Replace('.Designer','')).resx</DependentUpon>
+        </Compile>
+        <EmbeddedResource Update="**\*.resx">
+            <Generator>PublicResXFileCodeGenerator</Generator>
+            <LastGenOutput>%(Filename).Designer.cs</LastGenOutput>
+        </EmbeddedResource>
+    </ItemGroup>
+
+    <Target Name="BeforeBuildTasks" AfterTargets="CoreCompile">
+        <Exec Condition="!Exists('node_modules/.bin/sass') OR !Exists('node_modules/.bin/esbuild') OR !Exists('node_modules/.bin/tsc')" Command="npm install sass@1.65.1 typescript@5.1.6 esbuild@0.19.0 --no-save" StandardOutputImportance="high" StandardErrorImportance="high" />
+        <Exec Command="node_modules/.bin/sass .:. Styles/app.scss:wwwroot/styles/app.css  --style compressed --load-path=. --update" StandardOutputImportance="high" StandardErrorImportance="high" />
+        <Exec Command="node_modules/.bin/tsc" StandardOutputImportance="high" StandardErrorImportance="high" />
+        <Exec Condition=" '$(Configuration)' == 'Release' " Command="node_modules/.bin/esbuild wwwroot/scripts/app.js --minify --outfile=wwwroot/scripts/app.js --allow-overwrite" StandardOutputImportance="high" StandardErrorImportance="high" />
+        <Error Text="Pwa is not supported in BlazorServer mode." Condition="$(WebAppDeploymentType.Contains('Pwa')) AND '$(BlazorMode)' == 'BlazorServer'" />
+        <Error Text="To run in BlazorWebAssembly mode, change the sdk of the UrlShortener.Web.csproj to Microsoft.NET.Sdk.BlazorWebAssembly." Condition=" '$(BlazorMode)' == 'BlazorWebAssembly' AND '$(UsingMicrosoftNETSdkBlazorWebAssembly)' == '' " />
+        <Error Text="To run in BlazorServer or BlazorElectron modes, change the sdk of the UrlShortener.Web.csproj to Microsoft.NET.Sdk.Web." Condition=" ('$(BlazorMode)' == 'BlazorServer' OR '$(BlazorMode)' == 'BlazorElectron') AND '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != '' " />
+    </Target>
+    
+</Project>
