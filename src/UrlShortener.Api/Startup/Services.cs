@@ -23,6 +23,7 @@ public static class Services
 
         services.AddSharedServices();
 
+        services.AddScoped<UrlShorteningService>();
         services.AddScoped<IUserInformationProvider, UserInformationProvider>();
 
 #if BlazorWebAssembly
@@ -87,7 +88,7 @@ public static class Services
 
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseSqlServer(configuration.GetConnectionString("SqlServerConnectionString"), dbOptions =>
+            options.UseSqlite(configuration.GetConnectionString("SqliteConnectionString"), dbOptions =>
             {
                 dbOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
             });

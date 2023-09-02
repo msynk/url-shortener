@@ -1,6 +1,8 @@
 ﻿using UrlShortener.Api.Models.Identity;
 using UrlShortener.Api.Models.Todo;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using UrlShortener.Api.Models.Shortener;
+using UrlShortener.Api.Services.Implementations;
 
 namespace UrlShortener.Api.Data;
 
@@ -12,14 +14,21 @@ public class AppDbContext : IdentityDbContext<User, Role, int>
     }
 
     public DbSet<TodoItem> TodoItems { get; set; }
+    public DbSet<Url> Urls { get; set; }
 
-    protected override void OnModelCreating(ModelBuilder builder)
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(builder);
+        base.OnModelCreating(modelBuilder);
 
-        builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
 
-        ConfigIdentityTables(builder);
+        modelBuilder.Entity<Url>(builder =>
+        {
+            builder.Property(u => u.Code).HasMaxLength(UrlShorteningService.SHORTEN_URL_LENGTH);
+            builder.HasIndex(u => u.Code).IsUnique();
+        });
+
+        ConfigIdentityTables(modelBuilder);
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -46,6 +55,14 @@ public class AppDbContext : IdentityDbContext<User, Role, int>
         }
     }
 
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        if (Database.ProviderName!.EndsWith("Sqlite", StringComparison.InvariantCulture))
+        {
+            configurationBuilder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
+            configurationBuilder.Properties<DateTimeOffset?>().HaveConversion<DateTimeOffsetToBinaryConverter>();
+        }
+    }
 
     private void ConfigIdentityTables(ModelBuilder builder)
     {
